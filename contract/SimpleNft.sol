@@ -42,7 +42,7 @@ contract NFT is ERC721Enumerable, Ownable {
 	) ERC721(_name, _symbol) {
 		setBaseURI(_initBaseURI);
 		setNotRevealedURI(_initNotRevealedUri);
-		currentSupply = _intialSupply;
+		currentSupply = _initialSupply;
 		maxSupply = _maxSupply;
 	}
 
@@ -52,7 +52,7 @@ contract NFT is ERC721Enumerable, Ownable {
 	}
 
 	function random(uint256 range) internal view returns (uint256) {
-		return uint256(keccak256(block.timestamp, block.difficulty, msg.sender)) % range;
+		return uint256(keccak256(abi.encodePacked(block.timestamp, block.difficulty, msg.sender))) % range;
 	}
 
 	function setValidRandom() internal view returns (uint256){
@@ -73,6 +73,7 @@ contract NFT is ERC721Enumerable, Ownable {
 			if (r == currentSupply)
 				r = 0;
 		}
+		return r;
 	}
 
 	// public
@@ -148,9 +149,9 @@ contract NFT is ERC721Enumerable, Ownable {
 		cost = _newCost;
 	}
 
-	function setmaxMintAmount(uint256 _newmaxMintAmount) public onlyOwner {
+	/*function setmaxMintAmount(uint256 _newmaxMintAmount) public onlyOwner {
 		maxMintAmount = _newmaxMintAmount;
-	}
+	}*/
 
 	function setNotRevealedURI(string memory _notRevealedURI) public onlyOwner {
 		notRevealedUri = _notRevealedURI;
