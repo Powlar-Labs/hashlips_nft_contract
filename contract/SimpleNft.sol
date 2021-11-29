@@ -52,10 +52,10 @@ contract NFT is ERC721Enumerable, Ownable {
 	}
 
 	function random(uint256 range) internal view returns (uint256) {
-		return uint256(keccak256(abi.encodePacked(block.timestamp, block.difficulty, msg.sender))) % range;
+		return uint256(keccak256(abi.encodePacked(block.timestamp, block.difficulty, msg.sender, totalSupply()))) % range;
 	}
 
-	function setValidRandom() internal view returns (uint256){
+	function setValidRandom() public view returns (uint256){
 		uint256 rnd_num = random(currentSupply);
 		uint256 r;
 		uint256 i;
@@ -105,6 +105,11 @@ contract NFT is ERC721Enumerable, Ownable {
 		}
 	}
 
+	function getTokenAssigned(uint256 _num) public view returns (uint256){
+		require(_num< tokensAssigned.length);
+		return tokensAssigned[_num];
+	}
+
 	function walletOfOwner(address _owner)
 		public
 		view
@@ -136,7 +141,7 @@ contract NFT is ERC721Enumerable, Ownable {
 
 		string memory currentBaseURI = _baseURI();
 		return bytes(currentBaseURI).length > 0
-				? string(abi.encodePacked(currentBaseURI, tokensAssigned[tokenId], baseExtension))
+				? string(abi.encodePacked(currentBaseURI, (tokensAssigned[tokenId]).toString(), baseExtension))
 				: "";
 	}
 
@@ -170,15 +175,7 @@ contract NFT is ERC721Enumerable, Ownable {
 	}
 
 	function withdraw() public payable onlyOwner {
-		// This will pay HashLips 5% of the initial sale.
-		// You can remove this if you want, or keep it in to support HashLips and his channel.
-		// =============================================================================
-		(bool hs, ) = payable(0x943590A42C27D08e3744202c4Ae5eD55c2dE240D).call{value: address(this).balance * 5 / 100}("");
-		require(hs);
-		// =============================================================================
 
-		// This will payout the owner 95% of the contract balance.
-		// Do not remove this otherwise you will not be able to withdraw the funds.
 		// =============================================================================
 		(bool os, ) = payable(owner()).call{value: address(this).balance}("");
 		require(os);
