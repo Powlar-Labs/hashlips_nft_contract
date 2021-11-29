@@ -26,7 +26,7 @@ contract NFT is ERC721Enumerable, Ownable {
 	uint256 public cost = 0.05 ether;
 	uint256 public currentSupply;
 	uint256 public maxSupply;
-	uint256 public maxMintAmount = 20;
+	//uint256 public maxMintAmount = 20;
 	bool public paused = false;
 	bool public revealed = false;
 	string public notRevealedUri;
@@ -55,8 +55,29 @@ contract NFT is ERC721Enumerable, Ownable {
 		return uint256(keccak256(block.timestamp, block.difficulty, msg.sender)) % range;
 	}
 
+	function setValidRandom() internal view returns (uint256){
+		uint256 rnd_num = random(currentSupply);
+		uint256 r;
+		uint256 i;
+
+		r = rnd_num + 1;
+		while (r != rnd_num){
+			for (i = 0; i < tokensAssigned.length; i++){
+				if (tokensAssigned[i] == r)
+					break;
+			}
+			if (i == tokensAssigned.length){
+				return r;
+			}
+			r++;
+			if (r == currentSupply)
+				r = 0;
+		}
+	}
+
 	// public
-	function setMaxSupply(uint256 n) public onlyOwner{
+	function setCurrentSupply(uint256 n) public onlyOwner{
+		require(n > currentSupply, "Usted es comunista porque es tonto o es tonto porque es comunista?");
 		require(totalSupply() + n <= maxSupply, "No somos bolivarianos!");
 		currentSupply = n;
 	}
@@ -69,18 +90,16 @@ contract NFT is ERC721Enumerable, Ownable {
 		require(_mintAmount > 0);
 		//require(_mintAmount <= maxMintAmount);
 		require(supply + _mintAmount <= maxSupply);
+		require(tokensAssigned.length <= currentSupply);
 
 		if (msg.sender != owner()) {
 			require(msg.value >= cost * _mintAmount);
 		}
 
 		for (uint256 i = 1; i <= _mintAmount; i++) {
-			rnd_num = random();
-			for (uint256 i = rnd_num + 1; i != rnd_num; i++){
-				if (i == tokensAssigned.length)
-					i = 0;
-				if ()
-			}
+			rnd_num = setValidRandom();
+
+			tokensAssigned.push(rnd_num);
 			_safeMint(msg.sender, supply + i);
 		}
 	}
@@ -106,7 +125,7 @@ contract NFT is ERC721Enumerable, Ownable {
 		returns (string memory)
 	{
 		require(
-			_exists(tokenId),
+			_exists(tokenId) && tokenId < tokensAssigned.length,
 			"ERC721Metadata: URI query for nonexistent token"
 		);
 
@@ -116,7 +135,7 @@ contract NFT is ERC721Enumerable, Ownable {
 
 		string memory currentBaseURI = _baseURI();
 		return bytes(currentBaseURI).length > 0
-				? string(abi.encodePacked(currentBaseURI, tokenId.toString(), baseExtension))
+				? string(abi.encodePacked(currentBaseURI, tokensAssigned[tokenId], baseExtension))
 				: "";
 	}
 
