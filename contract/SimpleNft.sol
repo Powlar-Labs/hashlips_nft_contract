@@ -131,7 +131,7 @@ contract NFT is ERC721Enumerable, Ownable {
 		returns (string memory)
 	{
 		require(
-			_exists(tokenId) && tokenId < tokensAssigned.length,
+			_exists(tokenId) && tokenId <= totalSupply() ,
 			"ERC721Metadata: URI query for nonexistent token"
 		);
 
@@ -140,8 +140,9 @@ contract NFT is ERC721Enumerable, Ownable {
 		}
 
 		string memory currentBaseURI = _baseURI();
+
 		return bytes(currentBaseURI).length > 0
-				? string(abi.encodePacked(currentBaseURI, (tokensAssigned[tokenId]).toString(), baseExtension))
+				? string(abi.encodePacked(currentBaseURI, (tokensAssigned[tokenId - 1]).toString(), baseExtension))
 				: "";
 	}
 
