@@ -31,6 +31,7 @@ contract NFT is ERC721Enumerable, Ownable {
 	bool public revealed = false;
 	string public notRevealedUri;
 	uint256[] tokensAssigned;
+	address previousContract;
 
 	constructor(
 		string memory _name,
@@ -38,12 +39,14 @@ contract NFT is ERC721Enumerable, Ownable {
 		string memory _initBaseURI,
 		string memory _initNotRevealedUri,
 		uint256 _initialSupply,
-		uint256 _maxSupply
+		uint256 _maxSupply,
+		address _previousContract
 	) ERC721(_name, _symbol) {
 		setBaseURI(_initBaseURI);
 		setNotRevealedURI(_initNotRevealedUri);
 		currentSupply = _initialSupply;
 		maxSupply = _maxSupply;
+		previousContract = _previousContract;
 	}
 
 	// internal
@@ -94,7 +97,10 @@ contract NFT is ERC721Enumerable, Ownable {
 		require(tokensAssigned.length <= currentSupply);
 
 		if (msg.sender != owner()) {
-			require(msg.value >= cost * _mintAmount);
+			if (walletOfOwner(msg.sender).length() < previousContract.call(abi.encodeWithSignature("walletOfOwner(address)", msg.sender))) //Llamar a walletOfOwner() en previous contract
+				require(msg.value >= previousContract.call(abi.encodeWithSignature("cost")) * _mintAmount);	//Llamar a cost() en previous contract;
+			else
+				require(msg.value >= cost * _mintAmount);
 		}
 
 		for (uint256 i = 1; i <= _mintAmount; i++) {
