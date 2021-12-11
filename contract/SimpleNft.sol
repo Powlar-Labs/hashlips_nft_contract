@@ -2,15 +2,15 @@
 
 // Amended by HashLips
 /**
-	!Disclaimer!
-	These contracts have been used to create tutorials,
-	and was created for the purpose to teach people
-	how to create smart contracts on the blockchain.
-	please review this code on your own before using any of
-	the following code for production.
-	HashLips will not be liable in any way if for the use
-	of the code. That being said, the code has been tested
-	to the best of the developers' knowledge to work as intended.
+		!Disclaimer!
+		These contracts have been used to create tutorials,
+		and was created for the purpose to teach people
+		how to create smart contracts on the blockchain.
+		please review this code on your own before using any of
+		the following code for production.
+		HashLips will not be liable in any way if for the use
+		of the code. That being said, the code has been tested
+		to the best of the developers' knowledge to work as intended.
 */
 
 pragma solidity >=0.7.0 <0.9.0;
@@ -24,60 +24,102 @@ contract NFT is ERC721Enumerable, Ownable {
 	string baseURI;
 	string public baseExtension = ".json";
 	uint256 public cost = 0.05 ether;
-	uint16 public maxSupply = 1000;
-	uint16 public totalMaxSupply = 10000;
-	uint256 public maxMintAmount = 20;
+	uint256 public currentSupply;
+	uint256 public maxSupply;
+	//uint256 public maxMintAmount = 20;
 	bool public paused = false;
 	bool public revealed = false;
 	string public notRevealedUri;
-	mapping (uint16 => uint16) ids;
+	uint256[] tokensAssigned;
+	address previousContract;
 
 	constructor(
-	string memory _name,
-	string memory _symbol,
-	string memory _initBaseURI,
-	string memory _initNotRevealedUri
+		string memory _name,
+		string memory _symbol,
+		string memory _initBaseURI,
+		string memory _initNotRevealedUri,
+		uint256 _initialSupply,
+		uint256 _maxSupply,
+		address _previousContract
 	) ERC721(_name, _symbol) {
-	setBaseURI(_initBaseURI);
-	setNotRevealedURI(_initNotRevealedUri);
+		setBaseURI(_initBaseURI);
+		setNotRevealedURI(_initNotRevealedUri);
+		currentSupply = _initialSupply;
+		maxSupply = _maxSupply;
+		previousContract = _previousContract;
 	}
 
 	// internal
 	function _baseURI() internal view virtual override returns (string memory) {
-	return baseURI;
+		return baseURI;
 	}
 
-	function random(string memory input) internal pure returns (uint256) {
-		return uint256(keccak256(abi.encodePacked(input)));
+	function random(uint256 range) internal view returns (uint256) {
+		return uint256(keccak256(abi.encodePacked(block.timestamp, block.difficulty, msg.sender, totalSupply()))) % range;
+	}
+
+	function setValidRandom() public view returns (uint256){
+		uint256 rnd_num = random(currentSupply);
+		uint256 r;
+		uint256 i;
+
+		r = rnd_num + 1;
+		while (r != rnd_num){
+			for (i = 0; i < tokensAssigned.length; i++){
+				if (tokensAssigned[i] == r)
+					break;
+			}
+			if (i == tokensAssigned.length){
+				return r;
+			}
+			r++;
+			if (r == currentSupply)
+				r = 0;
+		}
+		return r;
 	}
 
 	// public
-	function setTotalSuply(uint16 n) public onlyOwner {
-		require(n <= totalMaxSupply, "No somos bolivarianos!");
-		totalMaxSupply = n;
+	function setCurrentSupply(uint256 n) public onlyOwner{
+		require(n > currentSupply, "Usted es comunista porque es tonto o es tonto porque es comunista?");
+		require(totalSupply() + n <= maxSupply, "No somos bolivarianos!");
+		currentSupply = n;
 	}
 
 	function mint(uint256 _mintAmount) public payable {
 		uint256 supply = totalSupply();
+		uint256 rnd_num;
+
 		require(!paused);
 		require(_mintAmount > 0);
-		require(_mintAmount <= maxMintAmount);
+		//require(_mintAmount <= maxMintAmount);
 		require(supply + _mintAmount <= maxSupply);
+		require(tokensAssigned.length <= currentSupply);
 
 		if (msg.sender != owner()) {
-			require(msg.value >= cost * _mintAmount);
+			if (walletOfOwner(msg.sender).length() < previousContract.call(abi.encodeWithSignature("walletOfOwner(address)", msg.sender))) //Llamar a walletOfOwner() en previous contract
+				require(msg.value >= previousContract.call(abi.encodeWithSignature("cost")) * _mintAmount);	//Llamar a cost() en previous contract;
+			else
+				require(msg.value >= cost * _mintAmount);
 		}
 
 		for (uint256 i = 1; i <= _mintAmount; i++) {
-			ids[random(block.timestamp)] = supply + i;
+			rnd_num = setValidRandom();
+
+			tokensAssigned.push(rnd_num);
 			_safeMint(msg.sender, supply + i);
 		}
 	}
 
+	function getTokenAssigned(uint256 _num) public view returns (uint256){
+		require(_num< tokensAssigned.length);
+		return tokensAssigned[_num];
+	}
+
 	function walletOfOwner(address _owner)
-	public
-	view
-	returns (uint256[] memory)
+		public
+		view
+		returns (uint256[] memory)
 	{
 		uint256 ownerTokenCount = balanceOf(_owner);
 		uint256[] memory tokenIds = new uint256[](ownerTokenCount);
@@ -88,39 +130,40 @@ contract NFT is ERC721Enumerable, Ownable {
 	}
 
 	function tokenURI(uint256 tokenId)
-	public
-	view
-	virtual
-	override
-	returns (string memory)
+		public
+		view
+		virtual
+		override
+		returns (string memory)
 	{
 		require(
-			_exists(ids[tokenId]),
+			_exists(tokenId) && tokenId <= totalSupply() ,
 			"ERC721Metadata: URI query for nonexistent token"
 		);
 
 		if(revealed == false) {
-			return notRevealedUri;
+				return notRevealedUri;
 		}
 
 		string memory currentBaseURI = _baseURI();
+
 		return bytes(currentBaseURI).length > 0
-			? string(abi.encodePacked(currentBaseURI, ids[tokenId].toString(), baseExtension))
-			: "";
+				? string(abi.encodePacked(currentBaseURI, (tokensAssigned[tokenId - 1]).toString(), baseExtension))
+				: "";
 	}
 
 	//only owner
 	function reveal() public onlyOwner {
-		revealed = true;
+			revealed = true;
 	}
 
 	function setCost(uint256 _newCost) public onlyOwner {
 		cost = _newCost;
 	}
 
-	function setmaxMintAmount(uint256 _newmaxMintAmount) public onlyOwner {
+	/*function setmaxMintAmount(uint256 _newmaxMintAmount) public onlyOwner {
 		maxMintAmount = _newmaxMintAmount;
-	}
+	}*/
 
 	function setNotRevealedURI(string memory _notRevealedURI) public onlyOwner {
 		notRevealedUri = _notRevealedURI;
@@ -139,18 +182,10 @@ contract NFT is ERC721Enumerable, Ownable {
 	}
 
 	function withdraw() public payable onlyOwner {
-	// This will pay HashLips 5% of the initial sale.
-	// You can remove this if you want, or keep it in to support HashLips and his channel.
-	// =============================================================================
-		(bool hs, ) = payable(0x943590A42C27D08e3744202c4Ae5eD55c2dE240D).call{value: address(this).balance * 5 / 100}("");
-		require(hs);
-	// =============================================================================
 
-	// This will payout the owner 95% of the contract balance.
-	// Do not remove this otherwise you will not be able to withdraw the funds.
-	// =============================================================================
+		// =============================================================================
 		(bool os, ) = payable(owner()).call{value: address(this).balance}("");
 		require(os);
-	// =============================================================================
+		// =============================================================================
 	}
 }
