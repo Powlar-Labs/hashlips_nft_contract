@@ -13,6 +13,20 @@
 		to the best of the developers' knowledge to work as intended.
 */
 
+/*
+                                                                                                       .         .                                                                              
+8 888888888o.            .8.           ,o888888o.    8 8888     ,88'   d888888o.                      ,8.       ,8.                   .8.          8 8888888888    8 8888          .8.          
+8 8888    `88.          .888.         8888     `88.  8 8888    ,88'  .`8888:' `88.                   ,888.     ,888.                 .888.         8 8888          8 8888         .888.         
+8 8888     `88         :88888.     ,8 8888       `8. 8 8888   ,88'   8.`8888.   Y8                  .`8888.   .`8888.               :88888.        8 8888          8 8888        :88888.        
+8 8888     ,88        . `88888.    88 8888           8 8888  ,88'    `8.`8888.                     ,8.`8888. ,8.`8888.             . `88888.       8 8888          8 8888       . `88888.       
+8 8888.   ,88'       .8. `88888.   88 8888           8 8888 ,88'      `8.`8888.                   ,8'8.`8888,8^8.`8888.           .8. `88888.      8 888888888888  8 8888      .8. `88888.      
+8 888888888P'       .8`8. `88888.  88 8888           8 8888 88'        `8.`8888.                 ,8' `8.`8888' `8.`8888.         .8`8. `88888.     8 8888          8 8888     .8`8. `88888.     
+8 8888`8b          .8' `8. `88888. 88 8888           8 888888<          `8.`8888.               ,8'   `8.`88'   `8.`8888.       .8' `8. `88888.    8 8888          8 8888    .8' `8. `88888.    
+8 8888 `8b.       .8'   `8. `88888.`8 8888       .8' 8 8888 `Y8.    8b   `8.`8888.             ,8'     `8.`'     `8.`8888.     .8'   `8. `88888.   8 8888          8 8888   .8'   `8. `88888.   
+8 8888   `8b.    .888888888. `88888.  8888     ,88'  8 8888   `Y8.  `8b.  ;8.`8888            ,8'       `8        `8.`8888.   .888888888. `88888.  8 8888          8 8888  .888888888. `88888.  
+8 8888     `88. .8'       `8. `88888.  `8888888P'    8 8888     `Y8. `Y8888P ,88P'           ,8'         `         `8.`8888. .8'       `8. `88888. 8 8888          8 8888 .8'       `8. `88888. 
+*/
+
 pragma solidity >=0.7.0 <0.9.0;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
@@ -23,15 +37,18 @@ contract NFT is ERC721Enumerable, Ownable {
 
 	string baseURI;
 	string public baseExtension = ".json";
-	uint256 public cost = 0.05 ether;
-	uint256 public currentSupply;
-	uint256 public maxSupply;
-	//uint256 public maxMintAmount = 20;
+	uint256 public cost = 0.0025 ether; //hacer como si ether fuera matic
+	uint256 public currentMaxSupply; //inicialmente 1k y luego se modifica a 3 y 4k (en principio)
+	uint256 public totalMaxSupply; //en principio a 10k
+	//uint256 public maxMintAmount = 20; //para testear no se pone
 	bool public paused = false;
 	bool public revealed = false;
 	string public notRevealedUri;
 	uint256[] tokensAssigned;
-	address previousContract;
+
+	uint256 public whitelistCost = 0.001 ether;
+	bool public whitelistOn = false;
+	mapping(address => bool) public isWhitelisted;
 
 	constructor(
 		string memory _name,
@@ -39,14 +56,12 @@ contract NFT is ERC721Enumerable, Ownable {
 		string memory _initBaseURI,
 		string memory _initNotRevealedUri,
 		uint256 _initialSupply,
-		uint256 _maxSupply,
-		address _previousContract
+		uint256 _totalMaxSupply
 	) ERC721(_name, _symbol) {
 		setBaseURI(_initBaseURI);
 		setNotRevealedURI(_initNotRevealedUri);
-		currentSupply = _initialSupply;
-		maxSupply = _maxSupply;
-		previousContract = _previousContract;
+		currentMaxSupply = _initialSupply;
+		totalMaxSupply = _totalMaxSupply;
 	}
 
 	// internal
@@ -58,8 +73,11 @@ contract NFT is ERC721Enumerable, Ownable {
 		return uint256(keccak256(abi.encodePacked(block.timestamp, block.difficulty, msg.sender, totalSupply()))) % range;
 	}
 
-	function setValidRandom() public view returns (uint256){
-		uint256 rnd_num = random(currentSupply);
+	/*
+	**	Genera un numero aleatorio e itera sobre el si esta repetido. Si llega hasta el final de la lista significa que no lo esta.
+	*/
+	function setValidRandom() public view returns (uint256){//TODO: comprobar que no gasta nada de gas ni del balance del contrato
+		uint256 rnd_num = random(currentMaxSupply);
 		uint256 r;
 		uint256 i;
 
@@ -73,19 +91,13 @@ contract NFT is ERC721Enumerable, Ownable {
 				return r;
 			}
 			r++;
-			if (r == currentSupply)
+			if (r == totalSupply())
 				r = 0;
 		}
 		return r;
 	}
 
 	// public
-	function setCurrentSupply(uint256 n) public onlyOwner{
-		require(n > currentSupply, "Usted es comunista porque es tonto o es tonto porque es comunista?");
-		require(totalSupply() + n <= maxSupply, "No somos bolivarianos!");
-		currentSupply = n;
-	}
-
 	function mint(uint256 _mintAmount) public payable {
 		uint256 supply = totalSupply();
 		uint256 rnd_num;
@@ -93,15 +105,10 @@ contract NFT is ERC721Enumerable, Ownable {
 		require(!paused);
 		require(_mintAmount > 0);
 		//require(_mintAmount <= maxMintAmount);
-		require(supply + _mintAmount <= maxSupply);
-		require(tokensAssigned.length <= currentSupply);
+		require(supply + _mintAmount <= currentMaxSupply);
 
-		if (msg.sender != owner()) {
-			if (walletOfOwner(msg.sender).length() < previousContract.call(abi.encodeWithSignature("walletOfOwner(address)", msg.sender))) //Llamar a walletOfOwner() en previous contract
-				require(msg.value >= previousContract.call(abi.encodeWithSignature("cost")) * _mintAmount);	//Llamar a cost() en previous contract;
-			else
-				require(msg.value >= cost * _mintAmount);
-		}
+		if (msg.sender != owner())
+			require(msg.value >= cost * _mintAmount);
 
 		for (uint256 i = 1; i <= _mintAmount; i++) {
 			rnd_num = setValidRandom();
@@ -111,8 +118,24 @@ contract NFT is ERC721Enumerable, Ownable {
 		}
 	}
 
+	function whitelistMint ( uint256 _mintAmount) public payable {
+		uint256 supply = totalSupply();
+		require(whitelistOn);
+		require(isWhitelisted[msg.sender] || msg.sender == owner());
+		require(supply + _mintAmount <= totalMaxSupply);
+
+		if(msg.sender != owner()) {
+			require(_mintAmount > 0 && balanceOf(msg.sender) + _mintAmount <=  5);
+			require(msg.value >= whitelistCost * _mintAmount);
+		}
+
+		for (uint256 i = 1; i <= _mintAmount; i++) {
+		_safeMint(msg.sender, supply + i);
+		}
+	}
+
 	function getTokenAssigned(uint256 _num) public view returns (uint256){
-		require(_num< tokensAssigned.length);
+		require(_num < tokensAssigned.length);
 		return tokensAssigned[_num];
 	}
 
@@ -153,6 +176,12 @@ contract NFT is ERC721Enumerable, Ownable {
 	}
 
 	//only owner
+	function increaseSupply(uint256 n) public onlyOwner{
+		require(n > 0);
+		require(n + currentMaxSupply <= totalMaxSupply, "No somos bolivarianos!");
+		currentMaxSupply += n;
+	}
+
 	function reveal() public onlyOwner {
 			revealed = true;
 	}
@@ -170,10 +199,12 @@ contract NFT is ERC721Enumerable, Ownable {
 	}
 
 	function setBaseURI(string memory _newBaseURI) public onlyOwner {
+		require (totalSupply() < totalMaxSupply);
 		baseURI = _newBaseURI;
 	}
 
 	function setBaseExtension(string memory _newBaseExtension) public onlyOwner {
+		require (totalSupply() < totalMaxSupply);
 		baseExtension = _newBaseExtension;
 	}
 
@@ -181,11 +212,20 @@ contract NFT is ERC721Enumerable, Ownable {
 		paused = _state;
 	}
 
-	function withdraw() public payable onlyOwner {
+	function withdraw() public payable onlyOwner { //TODO: añadir carteras de los fundadores del contrato
 
 		// =============================================================================
 		(bool os, ) = payable(owner()).call{value: address(this).balance}("");
 		require(os);
 		// =============================================================================
 	}
+
+	function setWhitelistPhase () public onlyOwner {
+		whitelistOn = !whitelistOn;
+	}
+
+	function addToWhitelist  (address _add) public onlyOwner {
+		isWhitelisted[_add] = true;
+	}
+
 }
