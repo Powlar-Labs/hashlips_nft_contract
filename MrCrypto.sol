@@ -58,7 +58,12 @@ contract MRCRYPTO is ERC721Enumerable, Ownable {
 	}
 
 	function random(uint256 range) internal view returns (uint256) {
-		return uint256(keccak256(abi.encodePacked(block.timestamp, block.difficulty, msg.sender, totalSupply()))) % range;
+		uint256 r = (uint256(keccak256(abi.encodePacked(block.timestamp, block.difficulty, msg.sender, totalSupply()))) % (range - 1)) + 1 ;
+
+		while(r < 1 || r > range - 1) {	
+			r = (uint256(keccak256(abi.encodePacked(block.timestamp, block.difficulty, msg.sender, totalSupply()))) % (range - 1)) + 1 ;
+		}
+		return r;
 	}
 
 	/*
@@ -70,7 +75,10 @@ contract MRCRYPTO is ERC721Enumerable, Ownable {
 		uint256 i;
 
 		r = rnd_num + 1;
+		//probar version mapeo
+		/*
 		while (r != rnd_num){
+			//es uno de los if
 			for (i = 0; i < tokensAssigned.length; i++){
 				if (tokensAssigned[i] == r)
 					break;
@@ -80,8 +88,8 @@ contract MRCRYPTO is ERC721Enumerable, Ownable {
 			}
 			r++;
 			if (r == totalSupply())
-				r = 0;
-		}
+				r = 1;
+		}*/
 		return r;
 	}
 
