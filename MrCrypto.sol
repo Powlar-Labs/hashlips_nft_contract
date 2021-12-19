@@ -1,17 +1,5 @@
 // SPDX-License-Identifier: MIT
 
-// Amended by HashLips
-/**
-		!Disclaimer!
-		These contracts have been used to create tutorials,
-		and was created for the purpose to teach people
-		how to create smart contracts on the blockchain.
-		please review this code on your own before using any of
-		the following code for production.
-		HashLips will not be liable in any way if for the use
-		of the code. That being said, the code has been tested
-		to the best of the developers' knowledge to work as intended.
-*/
 
 /*
                                                                                                        .         .                                                                              
@@ -32,25 +20,25 @@ pragma solidity >=0.7.0 <0.9.0;
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract NFT is ERC721Enumerable, Ownable {
+contract MRCRYPTO is ERC721Enumerable, Ownable {
 	using Strings for uint256;
 
 	string baseURI;
 	string public baseExtension = ".json";
+	string public notRevealedUri;
 	uint256 public cost = 0.0025 ether; //hacer como si ether fuera matic
 	uint256 public currentMaxSupply; //inicialmente 1k y luego se modifica a 3 y 4k (en principio)
 	uint256 public totalMaxSupply; //en principio a 10k
+	uint256[] tokensAssigned;
+	uint256 public whitelistCost = 0.001 ether;
+	uint256 previousMaxSupply = 0;
 	//uint256 public maxMintAmount = 20; //para testear no se pone
 	bool public paused = false;
 	bool public revealed = false;
-	string public notRevealedUri;
-	uint256[] tokensAssigned;
-
-	uint256 public whitelistCost = 0.001 ether;
 	bool public whitelistOn = false;
 	mapping(address => bool) public isWhitelisted;
 
-	constructor(
+	constructor (
 		string memory _name,
 		string memory _symbol,
 		string memory _initBaseURI,
@@ -58,10 +46,10 @@ contract NFT is ERC721Enumerable, Ownable {
 		uint256 _initialSupply,
 		uint256 _totalMaxSupply
 	) ERC721(_name, _symbol) {
+		totalMaxSupply = _totalMaxSupply;
+		currentMaxSupply = _initialSupply;
 		setBaseURI(_initBaseURI);
 		setNotRevealedURI(_initNotRevealedUri);
-		currentMaxSupply = _initialSupply;
-		totalMaxSupply = _totalMaxSupply;
 	}
 
 	// internal
@@ -163,8 +151,9 @@ contract NFT is ERC721Enumerable, Ownable {
 			_exists(tokenId) && tokenId <= totalSupply() ,
 			"ERC721Metadata: URI query for nonexistent token"
 		);
+		
 
-		if(revealed == false) {
+		if(revealed == false && tokenId > previousMaxSupply)  {
 				return notRevealedUri;
 		}
 
@@ -179,7 +168,9 @@ contract NFT is ERC721Enumerable, Ownable {
 	function increaseSupply(uint256 n) public onlyOwner{
 		require(n > 0);
 		require(n + currentMaxSupply <= totalMaxSupply, "No somos bolivarianos!");
+		previousMaxSupply = currentMaxSupply;
 		currentMaxSupply += n;
+		revealed = false;
 	}
 
 	function reveal() public onlyOwner {
@@ -198,7 +189,7 @@ contract NFT is ERC721Enumerable, Ownable {
 		notRevealedUri = _notRevealedURI;
 	}
 
-	function setBaseURI(string memory _newBaseURI) public onlyOwner {
+	function setBaseURI(string memory _newBaseURI) public onlyOwner {		
 		require (totalSupply() < totalMaxSupply);
 		baseURI = _newBaseURI;
 	}
