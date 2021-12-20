@@ -29,9 +29,9 @@ contract MRCRYPTO is ERC721Enumerable, Ownable {
 	uint256 public cost = 0.0025 ether; //hacer como si ether fuera matic
 	uint256 public currentMaxSupply; //inicialmente 1k y luego se modifica a 3 y 4k (en principio)
 	uint256 public totalMaxSupply; //en principio a 10k
-	uint256[] tokensAssigned;
 	uint256 public whitelistCost = 0.001 ether;
 	uint256 previousMaxSupply = 0;
+	uint256[] tokensAssigned;
 	//uint256 public maxMintAmount = 20; //para testear no se pone
 	bool public paused = false;
 	bool public revealed = false;
@@ -57,13 +57,8 @@ contract MRCRYPTO is ERC721Enumerable, Ownable {
 		return baseURI;
 	}
 
-	function random(uint256 range) internal view returns (uint256) {
-		uint256 r = (uint256(keccak256(abi.encodePacked(block.timestamp, block.difficulty, msg.sender, totalSupply()))) % (range - 1)) + 1 ;
-
-		while(r < 1 || r > range - 1) {	
-			r = (uint256(keccak256(abi.encodePacked(block.timestamp, block.difficulty, msg.sender, totalSupply()))) % (range - 1)) + 1 ;
-		}
-		return r;
+	function random(uint256 range) public view returns (uint256) {
+		return (uint256(keccak256(abi.encodePacked(block.timestamp, block.difficulty, msg.sender, tokensAssigned.length))) % (range - 1)) + 1;
 	}
 
 	/*
@@ -75,10 +70,7 @@ contract MRCRYPTO is ERC721Enumerable, Ownable {
 		uint256 i;
 
 		r = rnd_num + 1;
-		//probar version mapeo
-		/*
 		while (r != rnd_num){
-			//es uno de los if
 			for (i = 0; i < tokensAssigned.length; i++){
 				if (tokensAssigned[i] == r)
 					break;
@@ -87,15 +79,15 @@ contract MRCRYPTO is ERC721Enumerable, Ownable {
 				return r;
 			}
 			r++;
-			if (r == totalSupply())
+			if (r > currentMaxSupply)
 				r = 1;
-		}*/
+		}
 		return r;
 	}
 
 	// public
 	function mint(uint256 _mintAmount) public payable {
-		uint256 supply = totalSupply();
+		uint256 supply = tokensAssigned.length;
 		uint256 rnd_num;
 
 		require(!paused);
@@ -115,7 +107,7 @@ contract MRCRYPTO is ERC721Enumerable, Ownable {
 	}
 
 	function whitelistMint ( uint256 _mintAmount) public payable {
-		uint256 supply = totalSupply();
+		uint256 supply = tokensAssigned.length;
 		require(whitelistOn);
 		require(isWhitelisted[msg.sender] || msg.sender == owner());
 		require(supply + _mintAmount <= totalMaxSupply);
@@ -131,6 +123,7 @@ contract MRCRYPTO is ERC721Enumerable, Ownable {
 	}
 
 	function getTokenAssigned(uint256 _num) public view returns (uint256){
+		require(revealed == true);
 		require(_num < tokensAssigned.length);
 		return tokensAssigned[_num];
 	}
@@ -156,7 +149,7 @@ contract MRCRYPTO is ERC721Enumerable, Ownable {
 		returns (string memory)
 	{
 		require(
-			_exists(tokenId) && tokenId <= totalSupply() ,
+			_exists(tokenId) && tokenId <= tokensAssigned.length ,
 			"ERC721Metadata: URI query for nonexistent token"
 		);
 		
@@ -198,12 +191,12 @@ contract MRCRYPTO is ERC721Enumerable, Ownable {
 	}
 
 	function setBaseURI(string memory _newBaseURI) public onlyOwner {		
-		require (totalSupply() < totalMaxSupply);
+		require (tokensAssigned.length < totalMaxSupply);
 		baseURI = _newBaseURI;
 	}
 
 	function setBaseExtension(string memory _newBaseExtension) public onlyOwner {
-		require (totalSupply() < totalMaxSupply);
+		require (tokensAssigned.length < totalMaxSupply);
 		baseExtension = _newBaseExtension;
 	}
 
