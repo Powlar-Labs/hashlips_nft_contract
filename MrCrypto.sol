@@ -57,14 +57,14 @@ contract MRCRYPTO is ERC721Enumerable, Ownable {
 		return baseURI;
 	}
 
-	function random(uint256 range) public view returns (uint256) {
+	function random(uint256 range) internal view returns (uint256) {
 		return (uint256(keccak256(abi.encodePacked(block.timestamp, block.difficulty, msg.sender, tokensAssigned.length))) % (range - 1)) + 1;
 	}
 
 	/*
 	**	Genera un numero aleatorio e itera sobre el si esta repetido. Si llega hasta el final de la lista significa que no lo esta.
 	*/
-	function setValidRandom() public view returns (uint256){//TODO: comprobar que no gasta nada de gas ni del balance del contrato
+	function setValidRandom() internal view returns (uint256){//TODO: comprobar que no gasta nada de gas ni del balance del contrato
 		uint256 rnd_num = random(currentMaxSupply);
 		uint256 r;
 		uint256 i;
